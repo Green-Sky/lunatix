@@ -4,5 +4,8 @@ add_executable(tmp
 	./tmp.cpp
 )
 
-target_link_libraries(tmp PUBLIC toxcore)
+target_link_libraries(tmp PUBLIC
+	toxcore
+	Luau.VM
+)
 
