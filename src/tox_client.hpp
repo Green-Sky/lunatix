@@ -55,9 +55,6 @@ struct ToxClient {
 		void onToxGroupPeerExit(uint32_t group_number, uint32_t peer_id, Tox_Group_Exit_Type exit_type, std::string_view name, std::string_view part_message);
 		void onToxGroupSelfJoin(uint32_t group_number);
 
-	//public:
-		//StateI& getState(void); // public accessor for callbacks
-
 	private:
 		void saveToxProfile(void);
 

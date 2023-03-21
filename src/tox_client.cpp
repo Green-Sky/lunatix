@@ -3,6 +3,8 @@
 #include "./tox_utils.hpp"
 //#include "./tox_callbacks.hpp"
 
+#include <luacode.h>
+
 #include <memory>
 #include <sodium.h>
 
@@ -16,6 +18,23 @@ ToxClient::ToxClient(/*const CommandLine& cl*/)
 	//_self_name(cl.self_name),
 	//_tox_profile_path(cl.profile_path)
 {
+	auto* L = _lua_state_global.get();
+	{ // setup global lua state
+		luaL_openlibs(L);
+
+		{ // add global functions
+			//static const luaL_Reg funcs[] = {
+				//{"loadstring", lua_loadstring},
+				//{"require", lua_require},
+				//{NULL, NULL},
+			//};
+
+			//lua_pushvalue(L, LUA_GLOBALSINDEX);
+			//luaL_register(L, NULL, funcs);
+			//lua_pop(L, 1);
+		}
+	}
+
 	TOX_ERR_OPTIONS_NEW err_opt_new;
 	Tox_Options* options = tox_options_new(&err_opt_new);
 	assert(err_opt_new == TOX_ERR_OPTIONS_NEW::TOX_ERR_OPTIONS_NEW_OK);
@@ -119,7 +138,7 @@ ToxClient::ToxClient(/*const CommandLine& cl*/)
 #endif
 
 	if (_self_name.empty()) {
-		_self_name = "tox_ngc_ft1_tool";
+		_self_name = "lunatix";
 	}
 	tox_self_set_name(_tox, reinterpret_cast<const uint8_t*>(_self_name.data()), _self_name.size(), nullptr);
 
@@ -151,6 +170,40 @@ ToxClient::ToxClient(/*const CommandLine& cl*/)
 			// ... this is hardcore
 			tox_add_tcp_relay(_tox, nodes[i].ip, nodes[i].port, nodes[i].key_bin, NULL);
 		}
+	}
+
+	{ // start lua
+		std::ifstream ifile{"main.lua", std::ios::binary};
+
+		if (!ifile.is_open()) {
+			std::cerr << "missing main.lua\n";
+			exit(1);
+		}
+
+		std::cout << "TOX loading main.lua\n";
+		std::string lua_main_code;
+		while (ifile.good()) {
+			auto ch = ifile.get();
+			if (ch == EOF) {
+				break;
+			} else {
+				lua_main_code.push_back(ch); // TODO: this is slow
+			}
+		}
+
+		// load lua
+		size_t byte_code_size = 0;
+		std::unique_ptr<char, void(*)(void*)> byte_code {
+			luau_compile(lua_main_code.data(), lua_main_code.size(), nullptr, &byte_code_size),
+			std::free
+		};
+		// TODO: error handling
+		assert(byte_code);
+
+		// execute lua
+		luau_load(L, "main.lua", byte_code.get(), byte_code_size, 0);
+		lua_call(L, 0, 0);
+		// once executed, can we free it? (unique_ptr frees here)
 	}
 
 #if STUB
