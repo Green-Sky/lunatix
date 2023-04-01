@@ -12,6 +12,7 @@ target_link_libraries(lunatix PUBLIC
 	toxcore
 	Luau.VM
 	Luau.Compiler
+	luabridge
 )
 
 target_compile_features(lunatix PUBLIC cxx_std_17)

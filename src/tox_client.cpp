@@ -5,6 +5,8 @@
 
 #include <luacode.h>
 
+#include <LuaBridge3/LuaBridge.h>
+
 #include <memory>
 #include <sodium.h>
 

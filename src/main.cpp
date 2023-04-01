@@ -11,6 +11,8 @@
 // https://youtu.be/YIE4b8gT3ho
 
 int main(void) {
+	std::cout << "LUNATiX - because we have to be insane\n";
+
 	ToxClient tcl;
 
 	std::cout << "tox id: " << tcl.getOwnAddress() << "\n";
