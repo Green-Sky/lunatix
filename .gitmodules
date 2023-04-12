@@ -1,3 +1,6 @@
 [submodule "external/toxcore/c-toxcore/third_party/cmp"]
 	path = external/toxcore/c-toxcore/third_party/cmp
 	url = https://github.com/camgunz/cmp
+[submodule "external/solanaceae_core"]
+	path = external/solanaceae_core
+	url = https://github.com/Green-Sky/solanaceae_core
