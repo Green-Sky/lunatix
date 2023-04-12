@@ -4,6 +4,8 @@ add_subdirectory(./solanaceae)
 
 add_executable(lunatix
 	./main.cpp
+	./tox_lua_module.hpp
+	./tox_lua_module.cpp
 )
 
 target_link_libraries(lunatix PUBLIC

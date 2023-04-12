@@ -5,6 +5,8 @@
 #include "./solanaceae/auto_dirty.hpp"
 #include "./solanaceae/transfer_manager.hpp"
 
+#include "./tox_lua_module.hpp"
+
 #include <string_view>
 #include <iostream>
 #include <thread>
@@ -24,6 +26,8 @@ int main(void) {
 	AutoDirty ad{tc};
 
 	TransferManager tm{tc, tc};
+
+	ToxLuaModule lm{tc, tc};
 
 	std::cout << "tox id: " << tc.toxSelfGetAddressStr() << "\n";
 
