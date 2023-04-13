@@ -6,6 +6,7 @@
 #include <LuaBridge3/LuaBridge.h>
 
 #include <fstream>
+#include <tuple>
 #include <type_traits>
 
 #define REG_ENUM(x) template<> struct luabridge::Stack<x> : luabridge::Enum<x> {};
@@ -236,7 +237,8 @@ auto callEventArgs(const EventT* e, FN&& fn) {
 	} // else if ...
 }
 
-#else
+#endif
+
 //template<typename EventT, typename FN>
 //auto callEventArgs(const EventT* e, FN&& fn) { return fn(); }
 
@@ -257,263 +259,349 @@ auto callEventArgs(const Tox_Event_Conference_Connected* e, FN&& fn) {
 template<typename FN>
 auto callEventArgs(const Tox_Event_Conference_Invite* e, FN&& fn) {
 	return fn(
-
+		tox_event_conference_invite_get_cookie(e),
+		tox_event_conference_invite_get_cookie_length(e),
+		tox_event_conference_invite_get_type(e),
+		tox_event_conference_invite_get_friend_number(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Conference_Message* e, FN&& fn) {
 	return fn(
-
+		tox_event_conference_message_get_message(e),
+		tox_event_conference_message_get_message_length(e),
+		tox_event_conference_message_get_type(e),
+		tox_event_conference_message_get_conference_number(e),
+		tox_event_conference_message_get_peer_number(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Conference_Peer_List_Changed* e, FN&& fn) {
 	return fn(
-
+		tox_event_conference_peer_list_changed_get_conference_number(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Conference_Peer_Name* e, FN&& fn) {
 	return fn(
-
+		tox_event_conference_peer_name_get_name(e),
+		tox_event_conference_peer_name_get_name_length(e),
+		tox_event_conference_peer_name_get_conference_number(e),
+		tox_event_conference_peer_name_get_peer_number(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Conference_Title* e, FN&& fn) {
 	return fn(
-
+		tox_event_conference_title_get_title(e),
+		tox_event_conference_title_get_title_length(e),
+		tox_event_conference_title_get_conference_number(e),
+		tox_event_conference_title_get_peer_number(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_File_Chunk_Request* e, FN&& fn) {
 	return fn(
-
+		tox_event_file_chunk_request_get_length(e),
+		tox_event_file_chunk_request_get_file_number(e),
+		tox_event_file_chunk_request_get_friend_number(e),
+		tox_event_file_chunk_request_get_position(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_File_Recv* e, FN&& fn) {
 	return fn(
-
+		tox_event_file_recv_get_filename(e),
+		tox_event_file_recv_get_filename_length(e),
+		tox_event_file_recv_get_file_number(e),
+		tox_event_file_recv_get_file_size(e),
+		tox_event_file_recv_get_friend_number(e),
+		tox_event_file_recv_get_kind(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_File_Recv_Chunk* e, FN&& fn) {
 	return fn(
-
+		tox_event_file_recv_chunk_get_data(e),
+		tox_event_file_recv_chunk_get_length(e),
+		tox_event_file_recv_chunk_get_file_number(e),
+		tox_event_file_recv_chunk_get_friend_number(e),
+		tox_event_file_recv_chunk_get_position(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_File_Recv_Control* e, FN&& fn) {
 	return fn(
-
+		tox_event_file_recv_control_get_control(e),
+		tox_event_file_recv_control_get_file_number(e),
+		tox_event_file_recv_control_get_friend_number(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Friend_Connection_Status* e, FN&& fn) {
 	return fn(
-
+		tox_event_friend_connection_status_get_connection_status(e),
+		tox_event_friend_connection_status_get_friend_number(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Friend_Lossless_Packet* e, FN&& fn) {
 	return fn(
-
+		tox_event_friend_lossless_packet_get_data(e),
+		tox_event_friend_lossless_packet_get_data_length(e),
+		tox_event_friend_lossless_packet_get_friend_number(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Friend_Lossy_Packet* e, FN&& fn) {
 	return fn(
-
+		tox_event_friend_lossy_packet_get_data(e),
+		tox_event_friend_lossy_packet_get_data_length(e),
+		tox_event_friend_lossy_packet_get_friend_number(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Friend_Message* e, FN&& fn) {
 	return fn(
-
+		tox_event_friend_message_get_friend_number(e),
+		tox_event_friend_message_get_type(e),
+		tox_event_friend_message_get_message_length(e),
+		tox_event_friend_message_get_message(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Friend_Name* e, FN&& fn) {
 	return fn(
-
+		tox_event_friend_name_get_name(e),
+		tox_event_friend_name_get_name_length(e),
+		tox_event_friend_name_get_friend_number(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Friend_Read_Receipt* e, FN&& fn) {
 	return fn(
-
+		tox_event_friend_read_receipt_get_friend_number(e),
+		tox_event_friend_read_receipt_get_message_id(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Friend_Request* e, FN&& fn) {
 	return fn(
-
+		tox_event_friend_request_get_message(e),
+		tox_event_friend_request_get_public_key(e),
+		tox_event_friend_request_get_message_length(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Friend_Status* e, FN&& fn) {
 	return fn(
-
+		tox_event_friend_status_get_status(e),
+		tox_event_friend_status_get_friend_number(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Friend_Status_Message* e, FN&& fn) {
 	return fn(
-
+		tox_event_friend_status_message_get_message(e),
+		tox_event_friend_status_message_get_message_length(e),
+		tox_event_friend_status_message_get_friend_number(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Friend_Typing* e, FN&& fn) {
 	return fn(
-
+		tox_event_friend_typing_get_typing(e),
+		tox_event_friend_typing_get_friend_number(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Group_Peer_Name* e, FN&& fn) {
 	return fn(
-
+		tox_event_group_peer_name_get_group_number(e),
+		tox_event_group_peer_name_get_peer_id(e),
+		tox_event_group_peer_name_get_name(e),
+		tox_event_group_peer_name_get_name_length(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Group_Peer_Status* e, FN&& fn) {
 	return fn(
-
+		tox_event_group_peer_status_get_group_number(e),
+		tox_event_group_peer_status_get_peer_id(e),
+		tox_event_group_peer_status_get_status(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Group_Topic* e, FN&& fn) {
 	return fn(
-
+		tox_event_group_topic_get_group_number(e),
+		tox_event_group_topic_get_peer_id(e),
+		tox_event_group_topic_get_topic(e),
+		tox_event_group_topic_get_topic_length(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Group_Privacy_State* e, FN&& fn) {
 	return fn(
-
+		tox_event_group_privacy_state_get_group_number(e),
+		tox_event_group_privacy_state_get_privacy_state(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Group_Voice_State* e, FN&& fn) {
 	return fn(
-
+		tox_event_group_voice_state_get_group_number(e),
+		tox_event_group_voice_state_get_voice_state(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Group_Topic_Lock* e, FN&& fn) {
 	return fn(
-
+		tox_event_group_topic_lock_get_group_number(e),
+		tox_event_group_topic_lock_get_topic_lock(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Group_Peer_Limit* e, FN&& fn) {
 	return fn(
-
+		tox_event_group_peer_limit_get_group_number(e),
+		tox_event_group_peer_limit_get_peer_limit(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Group_Password* e, FN&& fn) {
 	return fn(
-
+		tox_event_group_password_get_group_number(e),
+		tox_event_group_password_get_password(e),
+		tox_event_group_password_get_password_length(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Group_Message* e, FN&& fn) {
 	return fn(
-
+		tox_event_group_message_get_group_number(e),
+		tox_event_group_message_get_peer_id(e),
+		tox_event_group_message_get_type(e),
+		tox_event_group_message_get_message(e),
+		tox_event_group_message_get_message_length(e),
+		tox_event_group_message_get_message_id(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Group_Private_Message* e, FN&& fn) {
 	return fn(
-
+		tox_event_group_private_message_get_group_number(e),
+		tox_event_group_private_message_get_peer_id(e),
+		tox_event_group_private_message_get_type(e),
+		tox_event_group_private_message_get_message(e),
+		tox_event_group_private_message_get_message_length(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Group_Custom_Packet* e, FN&& fn) {
 	return fn(
-
+		tox_event_group_custom_packet_get_group_number(e),
+		tox_event_group_custom_packet_get_peer_id(e),
+		tox_event_group_custom_packet_get_data(e),
+		tox_event_group_custom_packet_get_data_length(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Group_Custom_Private_Packet* e, FN&& fn) {
 	return fn(
-
+		tox_event_group_custom_private_packet_get_group_number(e),
+		tox_event_group_custom_private_packet_get_peer_id(e),
+		tox_event_group_custom_private_packet_get_data(e),
+		tox_event_group_custom_private_packet_get_data_length(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Group_Invite* e, FN&& fn) {
 	return fn(
-
+		tox_event_group_invite_get_friend_number(e),
+		tox_event_group_invite_get_invite_data(e),
+		tox_event_group_invite_get_invite_data_length(e),
+		tox_event_group_invite_get_group_name(e),
+		tox_event_group_invite_get_group_name_length(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Group_Peer_Join* e, FN&& fn) {
 	return fn(
-
+		tox_event_group_peer_join_get_group_number(e),
+		tox_event_group_peer_join_get_peer_id(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Group_Peer_Exit* e, FN&& fn) {
 	return fn(
-
+		tox_event_group_peer_exit_get_group_number(e),
+		tox_event_group_peer_exit_get_peer_id(e),
+		tox_event_group_peer_exit_get_exit_type(e),
+		tox_event_group_peer_exit_get_name(e),
+		tox_event_group_peer_exit_get_name_length(e),
+		tox_event_group_peer_exit_get_part_message(e),
+		tox_event_group_peer_exit_get_part_message_length(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Group_Self_Join* e, FN&& fn) {
 	return fn(
-
+		tox_event_group_self_join_get_group_number(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Group_Join_Fail* e, FN&& fn) {
 	return fn(
-
+		tox_event_group_join_fail_get_group_number(e),
+		tox_event_group_join_fail_get_fail_type(e)
 	);
 }
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Group_Moderation* e, FN&& fn) {
 	return fn(
-
+		tox_event_group_moderation_get_group_number(e),
+		tox_event_group_moderation_get_source_peer_id(e),
+		tox_event_group_moderation_get_target_peer_id(e),
+		tox_event_group_moderation_get_mod_type(e)
 	);
 }
-
-#endif
 
 bool ToxLuaModule::onToxEvent(const Tox_Event_Self_Connection_Status* e) {
 	// get lua function
