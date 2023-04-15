@@ -375,6 +375,14 @@ bool gc_get_peer_nick(const GC_Chat *chat, uint32_t peer_id, uint8_t *name);
 non_null()
 int gc_get_peer_nick_size(const GC_Chat *chat, uint32_t peer_id);
 
+/** @brief Returns the peer_id of the peer with this `public_key`.
+ *
+ * Returns peer_id on success.
+ * Returns -1 on error.
+ */
+non_null()
+int64_t get_gc_peer_id_by_public_key(const GC_Chat *chat, const uint8_t *public_key);
+
 /** @brief Copies peer_id's public key to `public_key`.
  *
  * This key is permanently tied to the peer's identity for `chat` until they explicitly
@@ -552,6 +560,7 @@ non_null(1) nullable(2) void gc_callback_custom_private_packet(const Messenger *
 non_null(1) nullable(2) void gc_callback_moderation(const Messenger *m, gc_moderation_cb *function);
 non_null(1) nullable(2) void gc_callback_nick_change(const Messenger *m, gc_nick_change_cb *function);
 non_null(1) nullable(2) void gc_callback_status_change(const Messenger *m, gc_status_change_cb *function);
+non_null(1) nullable(2) void gc_callback_connection_status_change(const Messenger *m, gc_connection_status_change_cb *function);
 non_null(1) nullable(2) void gc_callback_topic_change(const Messenger *m, gc_topic_change_cb *function);
 non_null(1) nullable(2) void gc_callback_peer_limit(const Messenger *m, gc_peer_limit_cb *function);
 non_null(1) nullable(2) void gc_callback_privacy_state(const Messenger *m, gc_privacy_state_cb *function);
@@ -706,6 +715,21 @@ bool gc_group_is_valid(const GC_Chat *chat);
 /** @brief Returns the number of active groups in `c`. */
 non_null()
 uint32_t gc_count_groups(const GC_Session *c);
+
+non_null()
+uint32_t copy_grouplist(const GC_Session *c, uint32_t *out_list, uint32_t list_size);
+
+non_null()
+uint32_t get_group_peercount(const GC_Chat *chat);
+
+non_null()
+uint32_t get_group_offline_peercount(const GC_Chat *chat);
+
+non_null()
+void copy_peerlist(const GC_Chat *chat, uint32_t *out_list);
+
+non_null()
+void copy_offline_peerlist(const GC_Chat *chat, uint32_t *out_list);
 
 /** @brief Returns true if peer_number exists */
 non_null()

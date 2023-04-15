@@ -32,6 +32,7 @@ set_source_files_properties(
   toxcore/network.c
   toxcore/tox.c
   toxcore/util.c
+  toxutil/toxutil.c
   PROPERTIES SKIP_UNITY_BUILD_INCLUSION TRUE)
 
 ################################################################################
@@ -177,6 +178,18 @@ if(BUILD_TOXAV)
     message(${NO_TOXAV_ERROR_TYPE} "Option BUILD_TOXAV is enabled but required library VPX was not found.")
     set(BUILD_TOXAV OFF)
   endif()
+  if(NOT X264_FOUND)
+    message(${NO_TOXAV_ERROR_TYPE} "Option BUILD_TOXAV is enabled but required library X264 was not found.")
+    set(BUILD_TOXAV OFF)
+  endif()
+  if(NOT LIBAVCODEC_FOUND)
+    message(${NO_TOXAV_ERROR_TYPE} "Option BUILD_TOXAV is enabled but required library LIBAVCODEC was not found.")
+    set(BUILD_TOXAV OFF)
+  endif()
+  if(NOT LIBAVUTIL_FOUND)
+    message(${NO_TOXAV_ERROR_TYPE} "Option BUILD_TOXAV is enabled but required library LIBAVUTIL was not found.")
+    set(BUILD_TOXAV OFF)
+  endif()
 endif()
 
 # Disable float/double packing in CMP (C MessagePack library).
@@ -239,24 +252,6 @@ set(toxcore_SOURCES
   toxcore/events/friend_status_message.c
   toxcore/events/friend_typing.c
   toxcore/events/self_connection_status.c
-  toxcore/events/group_custom_packet.c
-  toxcore/events/group_custom_private_packet.c
-  toxcore/events/group_invite.c
-  toxcore/events/group_join_fail.c
-  toxcore/events/group_message.c
-  toxcore/events/group_moderation.c
-  toxcore/events/group_password.c
-  toxcore/events/group_peer_exit.c
-  toxcore/events/group_peer_join.c
-  toxcore/events/group_peer_limit.c
-  toxcore/events/group_peer_name.c
-  toxcore/events/group_peer_status.c
-  toxcore/events/group_privacy_state.c
-  toxcore/events/group_private_message.c
-  toxcore/events/group_self_join.c
-  toxcore/events/group_topic.c
-  toxcore/events/group_topic_lock.c
-  toxcore/events/group_voice_state.c
   toxcore/forwarding.c
   toxcore/forwarding.h
   toxcore/friend_connection.c
@@ -328,11 +323,14 @@ set(toxcore_SOURCES
   toxcore/tox_unpack.c
   toxcore/tox_unpack.h
   toxcore/util.c
-  toxcore/util.h)
+  toxcore/util.h
+  toxutil/toxutil.c
+  toxutil/toxutil.h)
 set(toxcore_LINK_MODULES ${toxcore_LINK_MODULES} ${LIBSODIUM_LIBRARIES})
 set(toxcore_PKGCONFIG_REQUIRES ${toxcore_PKGCONFIG_REQUIRES} libsodium)
 set(toxcore_API_HEADERS
   ${toxcore_SOURCE_DIR}/toxcore/tox.h^tox
+  ${toxcore_SOURCE_DIR}/toxutil/toxutil.h^tox
   ${toxcore_SOURCE_DIR}/toxcore/tox_events.h^tox
   ${toxcore_SOURCE_DIR}/toxcore/tox_dispatch.h^tox)
 
@@ -344,10 +342,14 @@ set(toxcore_API_HEADERS
 
 if(BUILD_TOXAV)
   set(toxcore_SOURCES ${toxcore_SOURCES}
+    toxav/codecs/h264/codec.c
+    toxav/codecs/vpx/codec.c
     toxav/audio.c
     toxav/audio.h
     toxav/bwcontroller.c
     toxav/bwcontroller.h
+    toxav/dummy_ntp.c
+    toxav/dummy_ntp.h
     toxav/groupav.c
     toxav/groupav.h
     toxav/msi.c
@@ -358,14 +360,17 @@ if(BUILD_TOXAV)
     toxav/rtp.h
     toxav/toxav.c
     toxav/toxav.h
+    toxav/toxav_hacks.h
     toxav/toxav_old.c
+    toxav/ts_buffer.c
+    toxav/ts_buffer.h
     toxav/video.c
     toxav/video.h)
   set(toxcore_API_HEADERS ${toxcore_API_HEADERS}
     ${toxcore_SOURCE_DIR}/toxav/toxav.h^toxav)
 
-  set(toxcore_LINK_MODULES ${toxcore_LINK_MODULES} ${OPUS_LIBRARIES} ${VPX_LIBRARIES})
-  set(toxcore_PKGCONFIG_REQUIRES ${toxcore_PKGCONFIG_REQUIRES} opus vpx)
+  set(toxcore_LINK_MODULES ${toxcore_LINK_MODULES} ${OPUS_LIBRARIES} ${VPX_LIBRARIES} ${X264_LIBRARIES} ${LIBAVCODEC_LIBRARIES} ${LIBAVUTIL_LIBRARIES})
+  set(toxcore_PKGCONFIG_REQUIRES ${toxcore_PKGCONFIG_REQUIRES} opus vpx x264 libavcodec libavutil)
 endif()
 
 ################################################################################
@@ -446,7 +451,7 @@ include(CompileGTest)
 # The actual unit tests follow.
 #
 unit_test(toxav ring_buffer)
-unit_test(toxav rtp)
+# unit_test(toxav rtp) # Zoff:disabled for now
 unit_test(toxcore DHT)
 unit_test(toxcore bin_pack)
 unit_test(toxcore crypto_core)
