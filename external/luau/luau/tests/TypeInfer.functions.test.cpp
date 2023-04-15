@@ -1281,6 +1281,39 @@ f(function(x) return x * 2 end)
     LUAU_REQUIRE_NO_ERRORS(result);
 }
 
+TEST_CASE_FIXTURE(Fixture, "variadic_any_is_compatible_with_a_generic_TypePack")
+{
+    ScopedFastFlag sff[] = {
+        {"LuauVariadicAnyCanBeGeneric", true}
+    };
+
+    CheckResult result = check(R"(
+        --!strict
+        local function f(...) return ... end
+        local g = function(...) return f(...) end
+    )");
+
+    LUAU_REQUIRE_NO_ERRORS(result);
+}
+
+// https://github.com/Roblox/luau/issues/767
+TEST_CASE_FIXTURE(BuiltinsFixture, "variadic_any_is_compatible_with_a_generic_TypePack_2")
+{
+    ScopedFastFlag sff{"LuauVariadicAnyCanBeGeneric", true};
+
+    CheckResult result = check(R"(
+        local function somethingThatsAny(...: any)
+            print(...)
+        end
+
+        local function x<T...>(...: T...)
+            somethingThatsAny(...) -- Failed to unify variadic type packs
+        end
+    )");
+
+    LUAU_REQUIRE_NO_ERRORS(result);
+}
+
 TEST_CASE_FIXTURE(Fixture, "infer_anonymous_function_arguments_outside_call")
 {
     CheckResult result = check(R"(
@@ -1784,7 +1817,6 @@ z = y -- Not OK, so the line is colorable
 
 TEST_CASE_FIXTURE(Fixture, "function_is_supertype_of_concrete_functions")
 {
-    ScopedFastFlag sff{"LuauNegatedFunctionTypes", true};
     registerHiddenTypes(&frontend);
 
     CheckResult result = check(R"(
@@ -1803,7 +1835,6 @@ TEST_CASE_FIXTURE(Fixture, "function_is_supertype_of_concrete_functions")
 
 TEST_CASE_FIXTURE(Fixture, "concrete_functions_are_not_supertypes_of_function")
 {
-    ScopedFastFlag sff{"LuauNegatedFunctionTypes", true};
     registerHiddenTypes(&frontend);
 
     CheckResult result = check(R"(
@@ -1824,7 +1855,6 @@ TEST_CASE_FIXTURE(Fixture, "concrete_functions_are_not_supertypes_of_function")
 
 TEST_CASE_FIXTURE(Fixture, "other_things_are_not_related_to_function")
 {
-    ScopedFastFlag sff{"LuauNegatedFunctionTypes", true};
     registerHiddenTypes(&frontend);
 
     CheckResult result = check(R"(
@@ -1860,7 +1890,7 @@ TEST_CASE_FIXTURE(BuiltinsFixture, "dont_assert_when_the_tarjan_limit_is_exceede
     ScopedFastInt sfi{"LuauTarjanChildLimit", 2};
     ScopedFastFlag sff[] = {
         {"DebugLuauDeferredConstraintResolution", true},
-        {"LuauClonePublicInterfaceLess", true},
+        {"LuauClonePublicInterfaceLess2", true},
         {"LuauSubstitutionReentrant", true},
         {"LuauSubstitutionFixMissingFields", true},
     };
@@ -1878,6 +1908,35 @@ TEST_CASE_FIXTURE(BuiltinsFixture, "dont_assert_when_the_tarjan_limit_is_exceede
 
     CHECK_MESSAGE(get<UnificationTooComplex>(result.errors[1]), "Expected UnificationTooComplex but got: " << toString(result.errors[1]));
     CHECK(Location({0, 0}, {4, 4}) == result.errors[1].location);
+}
+
+/* We had a bug under DCR where instantiated type packs had a nullptr scope.
+ *
+ * This caused an issue with promotion.
+ */
+TEST_CASE_FIXTURE(Fixture, "instantiated_type_packs_must_have_a_non_null_scope")
+{
+    CheckResult result = check(R"(
+        function pcall<A..., R...>(...: A...): R...
+        end
+
+        type Dispatch<A> = (A) -> ()
+
+        function mountReducer()
+            dispatchAction()
+            return nil :: any
+        end
+
+        function dispatchAction()
+        end
+
+        function useReducer(): Dispatch<any>
+            local result, setResult = pcall(mountReducer)
+            return setResult
+        end
+    )");
+
+    LUAU_REQUIRE_NO_ERRORS(result);
 }
 
 TEST_SUITE_END();

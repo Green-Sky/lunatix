@@ -196,7 +196,6 @@ TEST_CASE_FIXTURE(Fixture, "index_on_a_union_type_with_missing_property")
     REQUIRE(bTy);
     CHECK_EQ(mup->missing[0], *bTy);
     CHECK_EQ(mup->key, "x");
-
     CHECK_EQ("*error-type*", toString(requireType("r")));
 }
 
@@ -354,7 +353,11 @@ a.x = 2
     )");
 
     LUAU_REQUIRE_ERROR_COUNT(1, result);
-    CHECK_EQ("Value of type '({| x: number |} & {| y: number |})?' could be nil", toString(result.errors[0]));
+    auto s = toString(result.errors[0]);
+    if (FFlag::DebugLuauDeferredConstraintResolution)
+        CHECK_EQ("Value of type '{| x: number, y: number |}?' could be nil", s);
+    else
+        CHECK_EQ("Value of type '({| x: number |} & {| y: number |})?' could be nil", s);
 }
 
 TEST_CASE_FIXTURE(Fixture, "optional_length_error")
@@ -771,6 +774,22 @@ TEST_CASE_FIXTURE(Fixture, "generic_function_with_optional_arg")
     )");
 
     LUAU_REQUIRE_NO_ERRORS(result);
+}
+
+TEST_CASE_FIXTURE(Fixture, "lookup_prop_of_intersection_containing_unions")
+{
+    CheckResult result = check(R"(
+        local function mergeOptions<T>(options: T & ({} | {}))
+            return options.variables
+        end
+    )");
+
+    LUAU_REQUIRE_ERROR_COUNT(1, result);
+
+    const UnknownProperty* unknownProp = get<UnknownProperty>(result.errors[0]);
+    REQUIRE(unknownProp);
+
+    CHECK("variables" == unknownProp->key);
 }
 
 TEST_SUITE_END();

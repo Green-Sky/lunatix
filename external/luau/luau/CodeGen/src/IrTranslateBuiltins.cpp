@@ -6,8 +6,9 @@
 
 #include "lstate.h"
 
-// TODO: should be possible to handle fastcalls in contexts where nresults is -1 by adding the adjustment instruction
 // TODO: when nresults is less than our actual result count, we can skip computing/writing unused results
+
+static const int kMinMaxUnrolledParams = 5;
 
 namespace Luau
 {
@@ -24,10 +25,10 @@ BuiltinImplResult translateBuiltinNumberToNumber(
         return {BuiltinImplType::None, -1};
 
     build.loadAndCheckTag(build.vmReg(arg), LUA_TNUMBER, fallback);
-    build.inst(IrCmd::FASTCALL, build.constUint(bfid), build.vmReg(ra), build.vmReg(arg), args, build.constInt(nparams), build.constInt(nresults));
+    build.inst(IrCmd::FASTCALL, build.constUint(bfid), build.vmReg(ra), build.vmReg(arg), args, build.constInt(1), build.constInt(1));
 
-    // TODO: tag update might not be required, we place it here now because FASTCALL is not modeled in constant propagation yet
-    build.inst(IrCmd::STORE_TAG, build.vmReg(ra), build.constTag(LUA_TNUMBER));
+    if (ra != arg)
+        build.inst(IrCmd::STORE_TAG, build.vmReg(ra), build.constTag(LUA_TNUMBER));
 
     return {BuiltinImplType::UsesFallback, 1};
 }
@@ -41,10 +42,10 @@ BuiltinImplResult translateBuiltin2NumberToNumber(
 
     build.loadAndCheckTag(build.vmReg(arg), LUA_TNUMBER, fallback);
     build.loadAndCheckTag(args, LUA_TNUMBER, fallback);
-    build.inst(IrCmd::FASTCALL, build.constUint(bfid), build.vmReg(ra), build.vmReg(arg), args, build.constInt(nparams), build.constInt(nresults));
+    build.inst(IrCmd::FASTCALL, build.constUint(bfid), build.vmReg(ra), build.vmReg(arg), args, build.constInt(2), build.constInt(1));
 
-    // TODO:tag update might not be required, we place it here now because FASTCALL is not modeled in constant propagation yet
-    build.inst(IrCmd::STORE_TAG, build.vmReg(ra), build.constTag(LUA_TNUMBER));
+    if (ra != arg)
+        build.inst(IrCmd::STORE_TAG, build.vmReg(ra), build.constTag(LUA_TNUMBER));
 
     return {BuiltinImplType::UsesFallback, 1};
 }
@@ -57,11 +58,14 @@ BuiltinImplResult translateBuiltinNumberTo2Number(
         return {BuiltinImplType::None, -1};
 
     build.loadAndCheckTag(build.vmReg(arg), LUA_TNUMBER, fallback);
-    build.inst(IrCmd::FASTCALL, build.constUint(bfid), build.vmReg(ra), build.vmReg(arg), args, build.constInt(nparams), build.constInt(nresults));
+    build.inst(
+        IrCmd::FASTCALL, build.constUint(bfid), build.vmReg(ra), build.vmReg(arg), args, build.constInt(1), build.constInt(nresults == 1 ? 1 : 2));
 
-    // TODO: some tag updates might not be required, we place them here now because FASTCALL is not modeled in constant propagation yet
-    build.inst(IrCmd::STORE_TAG, build.vmReg(ra), build.constTag(LUA_TNUMBER));
-    build.inst(IrCmd::STORE_TAG, build.vmReg(ra + 1), build.constTag(LUA_TNUMBER));
+    if (ra != arg)
+        build.inst(IrCmd::STORE_TAG, build.vmReg(ra), build.constTag(LUA_TNUMBER));
+
+    if (nresults != 1)
+        build.inst(IrCmd::STORE_TAG, build.vmReg(ra + 1), build.constTag(LUA_TNUMBER));
 
     return {BuiltinImplType::UsesFallback, 2};
 }
@@ -124,32 +128,62 @@ BuiltinImplResult translateBuiltinMathLog(
     if (nparams < 1 || nresults > 1)
         return {BuiltinImplType::None, -1};
 
-    build.loadAndCheckTag(build.vmReg(arg), LUA_TNUMBER, fallback);
+    LuauBuiltinFunction fcId = bfid;
+    int fcParams = 1;
 
     if (nparams != 1)
-        build.loadAndCheckTag(args, LUA_TNUMBER, fallback);
+    {
+        if (args.kind != IrOpKind::VmConst)
+            return {BuiltinImplType::None, -1};
 
-    build.inst(IrCmd::FASTCALL, build.constUint(bfid), build.vmReg(ra), build.vmReg(arg), args, build.constInt(nparams), build.constInt(nresults));
+        LUAU_ASSERT(build.function.proto);
+        TValue protok = build.function.proto->k[vmConstOp(args)];
 
-    // TODO: tag update might not be required, we place it here now because FASTCALL is not modeled in constant propagation yet
-    build.inst(IrCmd::STORE_TAG, build.vmReg(ra), build.constTag(LUA_TNUMBER));
+        if (protok.tt != LUA_TNUMBER)
+            return {BuiltinImplType::None, -1};
+
+        // TODO: IR builtin lowering assumes that the only valid 2-argument call is log2; ideally, we use a less hacky way to indicate that
+        if (protok.value.n == 2.0)
+            fcParams = 2;
+        else if (protok.value.n == 10.0)
+            fcId = LBF_MATH_LOG10;
+        else
+            // TODO: We can precompute log(args) and divide by it, but that requires extra LOAD/STORE so for now just fall back as this is rare
+            return {BuiltinImplType::None, -1};
+    }
+
+    build.loadAndCheckTag(build.vmReg(arg), LUA_TNUMBER, fallback);
+
+    build.inst(IrCmd::FASTCALL, build.constUint(fcId), build.vmReg(ra), build.vmReg(arg), args, build.constInt(fcParams), build.constInt(1));
+
+    if (ra != arg)
+        build.inst(IrCmd::STORE_TAG, build.vmReg(ra), build.constTag(LUA_TNUMBER));
 
     return {BuiltinImplType::UsesFallback, 1};
 }
 
 BuiltinImplResult translateBuiltinMathMin(IrBuilder& build, int nparams, int ra, int arg, IrOp args, int nresults, IrOp fallback)
 {
-    // TODO: this can be extended for other number of arguments
-    if (nparams != 2 || nresults > 1)
+    if (nparams < 2 || nparams > kMinMaxUnrolledParams || nresults > 1)
         return {BuiltinImplType::None, -1};
 
     build.loadAndCheckTag(build.vmReg(arg), LUA_TNUMBER, fallback);
     build.loadAndCheckTag(args, LUA_TNUMBER, fallback);
 
+    for (int i = 3; i <= nparams; ++i)
+        build.loadAndCheckTag(build.vmReg(vmRegOp(args) + (i - 2)), LUA_TNUMBER, fallback);
+
     IrOp varg1 = build.inst(IrCmd::LOAD_DOUBLE, build.vmReg(arg));
     IrOp varg2 = build.inst(IrCmd::LOAD_DOUBLE, args);
 
     IrOp res = build.inst(IrCmd::MIN_NUM, varg2, varg1); // Swapped arguments are required for consistency with VM builtins
+
+    for (int i = 3; i <= nparams; ++i)
+    {
+        IrOp arg = build.inst(IrCmd::LOAD_DOUBLE, build.vmReg(vmRegOp(args) + (i - 2)));
+        res = build.inst(IrCmd::MIN_NUM, arg, res);
+    }
+
     build.inst(IrCmd::STORE_DOUBLE, build.vmReg(ra), res);
 
     if (ra != arg)
@@ -160,17 +194,26 @@ BuiltinImplResult translateBuiltinMathMin(IrBuilder& build, int nparams, int ra,
 
 BuiltinImplResult translateBuiltinMathMax(IrBuilder& build, int nparams, int ra, int arg, IrOp args, int nresults, IrOp fallback)
 {
-    // TODO: this can be extended for other number of arguments
-    if (nparams != 2 || nresults > 1)
+    if (nparams < 2 || nparams > kMinMaxUnrolledParams || nresults > 1)
         return {BuiltinImplType::None, -1};
 
     build.loadAndCheckTag(build.vmReg(arg), LUA_TNUMBER, fallback);
     build.loadAndCheckTag(args, LUA_TNUMBER, fallback);
 
+    for (int i = 3; i <= nparams; ++i)
+        build.loadAndCheckTag(build.vmReg(vmRegOp(args) + (i - 2)), LUA_TNUMBER, fallback);
+
     IrOp varg1 = build.inst(IrCmd::LOAD_DOUBLE, build.vmReg(arg));
     IrOp varg2 = build.inst(IrCmd::LOAD_DOUBLE, args);
 
     IrOp res = build.inst(IrCmd::MAX_NUM, varg2, varg1); // Swapped arguments are required for consistency with VM builtins
+
+    for (int i = 3; i <= nparams; ++i)
+    {
+        IrOp arg = build.inst(IrCmd::LOAD_DOUBLE, build.vmReg(vmRegOp(args) + (i - 2)));
+        res = build.inst(IrCmd::MAX_NUM, arg, res);
+    }
+
     build.inst(IrCmd::STORE_DOUBLE, build.vmReg(ra), res);
 
     if (ra != arg)
@@ -190,10 +233,10 @@ BuiltinImplResult translateBuiltinMathClamp(IrBuilder& build, int nparams, int r
 
     build.loadAndCheckTag(build.vmReg(arg), LUA_TNUMBER, fallback);
     build.loadAndCheckTag(args, LUA_TNUMBER, fallback);
-    build.loadAndCheckTag(build.vmReg(args.index + 1), LUA_TNUMBER, fallback);
+    build.loadAndCheckTag(build.vmReg(vmRegOp(args) + 1), LUA_TNUMBER, fallback);
 
     IrOp min = build.inst(IrCmd::LOAD_DOUBLE, args);
-    IrOp max = build.inst(IrCmd::LOAD_DOUBLE, build.vmReg(args.index + 1));
+    IrOp max = build.inst(IrCmd::LOAD_DOUBLE, build.vmReg(vmRegOp(args) + 1));
 
     build.inst(IrCmd::JUMP_CMP_NUM, min, max, build.cond(IrCondition::NotLessEqual), fallback, block);
     build.beginBlock(block);
@@ -210,15 +253,51 @@ BuiltinImplResult translateBuiltinMathClamp(IrBuilder& build, int nparams, int r
     return {BuiltinImplType::UsesFallback, 1};
 }
 
+BuiltinImplResult translateBuiltinMathUnary(IrBuilder& build, IrCmd cmd, int nparams, int ra, int arg, int nresults, IrOp fallback)
+{
+    if (nparams < 1 || nresults > 1)
+        return {BuiltinImplType::None, -1};
+
+    build.loadAndCheckTag(build.vmReg(arg), LUA_TNUMBER, fallback);
+
+    IrOp varg = build.inst(IrCmd::LOAD_DOUBLE, build.vmReg(arg));
+    IrOp result = build.inst(cmd, varg);
+
+    build.inst(IrCmd::STORE_DOUBLE, build.vmReg(ra), result);
+
+    if (ra != arg)
+        build.inst(IrCmd::STORE_TAG, build.vmReg(ra), build.constTag(LUA_TNUMBER));
+
+    return {BuiltinImplType::UsesFallback, 1};
+}
+
+BuiltinImplResult translateBuiltinMathBinary(IrBuilder& build, IrCmd cmd, int nparams, int ra, int arg, IrOp args, int nresults, IrOp fallback)
+{
+    if (nparams < 2 || nresults > 1)
+        return {BuiltinImplType::None, -1};
+
+    build.loadAndCheckTag(build.vmReg(arg), LUA_TNUMBER, fallback);
+    build.loadAndCheckTag(args, LUA_TNUMBER, fallback);
+
+    IrOp lhs = build.inst(IrCmd::LOAD_DOUBLE, build.vmReg(arg));
+    IrOp rhs = build.inst(IrCmd::LOAD_DOUBLE, args);
+    IrOp result = build.inst(cmd, lhs, rhs);
+
+    build.inst(IrCmd::STORE_DOUBLE, build.vmReg(ra), result);
+
+    if (ra != arg)
+        build.inst(IrCmd::STORE_TAG, build.vmReg(ra), build.constTag(LUA_TNUMBER));
+
+    return {BuiltinImplType::UsesFallback, 1};
+}
+
 BuiltinImplResult translateBuiltinType(IrBuilder& build, int nparams, int ra, int arg, IrOp args, int nresults, IrOp fallback)
 {
     if (nparams < 1 || nresults > 1)
         return {BuiltinImplType::None, -1};
 
-    build.inst(
-        IrCmd::FASTCALL, build.constUint(LBF_TYPE), build.vmReg(ra), build.vmReg(arg), args, build.constInt(nparams), build.constInt(nresults));
+    build.inst(IrCmd::FASTCALL, build.constUint(LBF_TYPE), build.vmReg(ra), build.vmReg(arg), args, build.constInt(1), build.constInt(1));
 
-    // TODO: tag update might not be required, we place it here now because FASTCALL is not modeled in constant propagation yet
     build.inst(IrCmd::STORE_TAG, build.vmReg(ra), build.constTag(LUA_TSTRING));
 
     return {BuiltinImplType::UsesFallback, 1};
@@ -229,17 +308,40 @@ BuiltinImplResult translateBuiltinTypeof(IrBuilder& build, int nparams, int ra, 
     if (nparams < 1 || nresults > 1)
         return {BuiltinImplType::None, -1};
 
-    build.inst(
-        IrCmd::FASTCALL, build.constUint(LBF_TYPEOF), build.vmReg(ra), build.vmReg(arg), args, build.constInt(nparams), build.constInt(nresults));
+    build.inst(IrCmd::FASTCALL, build.constUint(LBF_TYPEOF), build.vmReg(ra), build.vmReg(arg), args, build.constInt(1), build.constInt(1));
 
-    // TODO: tag update might not be required, we place it here now because FASTCALL is not modeled in constant propagation yet
     build.inst(IrCmd::STORE_TAG, build.vmReg(ra), build.constTag(LUA_TSTRING));
+
+    return {BuiltinImplType::UsesFallback, 1};
+}
+
+BuiltinImplResult translateBuiltinVector(IrBuilder& build, int nparams, int ra, int arg, IrOp args, int nresults, IrOp fallback)
+{
+    if (nparams < 3 || nresults > 1)
+        return {BuiltinImplType::None, -1};
+
+    LUAU_ASSERT(LUA_VECTOR_SIZE == 3);
+
+    build.loadAndCheckTag(build.vmReg(arg), LUA_TNUMBER, fallback);
+    build.loadAndCheckTag(args, LUA_TNUMBER, fallback);
+    build.loadAndCheckTag(build.vmReg(vmRegOp(args) + 1), LUA_TNUMBER, fallback);
+
+    IrOp x = build.inst(IrCmd::LOAD_DOUBLE, build.vmReg(arg));
+    IrOp y = build.inst(IrCmd::LOAD_DOUBLE, args);
+    IrOp z = build.inst(IrCmd::LOAD_DOUBLE, build.vmReg(vmRegOp(args) + 1));
+
+    build.inst(IrCmd::STORE_VECTOR, build.vmReg(ra), x, y, z);
+    build.inst(IrCmd::STORE_TAG, build.vmReg(ra), build.constTag(LUA_TVECTOR));
 
     return {BuiltinImplType::UsesFallback, 1};
 }
 
 BuiltinImplResult translateBuiltin(IrBuilder& build, int bfid, int ra, int arg, IrOp args, int nparams, int nresults, IrOp fallback)
 {
+    // Builtins are not allowed to handle variadic arguments
+    if (nparams == LUA_MULTRET)
+        return {BuiltinImplType::None, -1};
+
     switch (bfid)
     {
     case LBF_ASSERT:
@@ -257,9 +359,17 @@ BuiltinImplResult translateBuiltin(IrBuilder& build, int bfid, int ra, int arg, 
     case LBF_MATH_CLAMP:
         return translateBuiltinMathClamp(build, nparams, ra, arg, args, nresults, fallback);
     case LBF_MATH_FLOOR:
+        return translateBuiltinMathUnary(build, IrCmd::FLOOR_NUM, nparams, ra, arg, nresults, fallback);
     case LBF_MATH_CEIL:
+        return translateBuiltinMathUnary(build, IrCmd::CEIL_NUM, nparams, ra, arg, nresults, fallback);
     case LBF_MATH_SQRT:
+        return translateBuiltinMathUnary(build, IrCmd::SQRT_NUM, nparams, ra, arg, nresults, fallback);
     case LBF_MATH_ABS:
+        return translateBuiltinMathUnary(build, IrCmd::ABS_NUM, nparams, ra, arg, nresults, fallback);
+    case LBF_MATH_ROUND:
+        return translateBuiltinMathUnary(build, IrCmd::ROUND_NUM, nparams, ra, arg, nresults, fallback);
+    case LBF_MATH_POW:
+        return translateBuiltinMathBinary(build, IrCmd::POW_NUM, nparams, ra, arg, args, nresults, fallback);
     case LBF_MATH_EXP:
     case LBF_MATH_ASIN:
     case LBF_MATH_SIN:
@@ -271,11 +381,9 @@ BuiltinImplResult translateBuiltin(IrBuilder& build, int bfid, int ra, int arg, 
     case LBF_MATH_TAN:
     case LBF_MATH_TANH:
     case LBF_MATH_LOG10:
-    case LBF_MATH_ROUND:
     case LBF_MATH_SIGN:
         return translateBuiltinNumberToNumber(build, LuauBuiltinFunction(bfid), nparams, ra, arg, args, nresults, fallback);
     case LBF_MATH_FMOD:
-    case LBF_MATH_POW:
     case LBF_MATH_ATAN2:
     case LBF_MATH_LDEXP:
         return translateBuiltin2NumberToNumber(build, LuauBuiltinFunction(bfid), nparams, ra, arg, args, nresults, fallback);
@@ -286,6 +394,8 @@ BuiltinImplResult translateBuiltin(IrBuilder& build, int bfid, int ra, int arg, 
         return translateBuiltinType(build, nparams, ra, arg, args, nresults, fallback);
     case LBF_TYPEOF:
         return translateBuiltinTypeof(build, nparams, ra, arg, args, nresults, fallback);
+    case LBF_VECTOR:
+        return translateBuiltinVector(build, nparams, ra, arg, args, nresults, fallback);
     default:
         return {BuiltinImplType::None, -1};
     }

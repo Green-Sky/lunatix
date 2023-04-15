@@ -568,6 +568,10 @@ struct TypeChecker2
         {
             // nothing
         }
+        else if (isOptional(iteratorTy))
+        {
+            reportError(OptionalValueAccess{iteratorTy}, forInStatement->values.data[0]->location);
+        }
         else if (std::optional<TypeId> iterMmTy =
                      findMetatableEntry(builtinTypes, module->errors, iteratorTy, "__iter", forInStatement->values.data[0]->location))
         {
@@ -973,6 +977,12 @@ struct TypeChecker2
         else if (auto utv = get<UnionType>(functionType))
         {
             // Sometimes it's okay to call a union of functions, but only if all of the functions are the same.
+            // Another scenario we might run into it is if the union has a nil member. In this case, we want to throw an error
+            if (isOptional(functionType))
+            {
+                reportError(OptionalValueAccess{functionType}, call->location);
+                return;
+            }
             std::optional<TypeId> fst;
             for (TypeId ty : utv)
             {
@@ -1150,11 +1160,7 @@ struct TypeChecker2
         visit(expr, RValue);
 
         TypeId leftType = stripFromNilAndReport(lookupType(expr), location);
-        const NormalizedType* norm = normalizer.normalize(leftType);
-        if (!norm)
-            reportError(NormalizationTooComplex{}, location);
-
-        checkIndexTypeFromType(leftType, *norm, propName, location, context);
+        checkIndexTypeFromType(leftType, propName, location, context);
     }
 
     void visit(AstExprIndexName* indexName, ValueContext context)
@@ -1187,6 +1193,8 @@ struct TypeChecker2
             else
                 reportError(CannotExtendTable{exprType, CannotExtendTable::Indexer, "indexer??"}, indexExpr->location);
         }
+        else if (get<UnionType>(exprType) && isOptional(exprType))
+            reportError(OptionalValueAccess{exprType}, indexExpr->location);
     }
 
     void visit(AstExprFunction* fn)
@@ -1297,9 +1305,13 @@ struct TypeChecker2
             DenseHashSet<TypeId> seen{nullptr};
             int recursionCount = 0;
 
+
             if (!hasLength(operandType, seen, &recursionCount))
             {
-                reportError(NotATable{operandType}, expr->location);
+                if (isOptional(operandType))
+                    reportError(OptionalValueAccess{operandType}, expr->location);
+                else
+                    reportError(NotATable{operandType}, expr->location);
             }
         }
         else if (expr->op == AstExprUnary::Op::Minus)
@@ -2017,8 +2029,16 @@ struct TypeChecker2
             reportError(std::move(e));
     }
 
-    void checkIndexTypeFromType(TypeId tableTy, const NormalizedType& norm, const std::string& prop, const Location& location, ValueContext context)
+    // If the provided type does not have the named property, report an error.
+    void checkIndexTypeFromType(TypeId tableTy, const std::string& prop, const Location& location, ValueContext context)
     {
+        const NormalizedType* norm = normalizer.normalize(tableTy);
+        if (!norm)
+        {
+            reportError(NormalizationTooComplex{}, location);
+            return;
+        }
+
         bool foundOneProp = false;
         std::vector<TypeId> typesMissingTheProp;
 
@@ -2026,49 +2046,50 @@ struct TypeChecker2
             if (!normalizer.isInhabited(ty))
                 return;
 
-            bool found = hasIndexTypeFromType(ty, prop, location);
+            std::unordered_set<TypeId> seen;
+            bool found = hasIndexTypeFromType(ty, prop, location, seen);
             foundOneProp |= found;
             if (!found)
                 typesMissingTheProp.push_back(ty);
         };
 
-        fetch(norm.tops);
-        fetch(norm.booleans);
+        fetch(norm->tops);
+        fetch(norm->booleans);
 
         if (FFlag::LuauNegatedClassTypes)
         {
-            for (const auto& [ty, _negations] : norm.classes.classes)
+            for (const auto& [ty, _negations] : norm->classes.classes)
             {
                 fetch(ty);
             }
         }
         else
         {
-            for (TypeId ty : norm.DEPRECATED_classes)
+            for (TypeId ty : norm->DEPRECATED_classes)
                 fetch(ty);
         }
-        fetch(norm.errors);
-        fetch(norm.nils);
-        fetch(norm.numbers);
-        if (!norm.strings.isNever())
+        fetch(norm->errors);
+        fetch(norm->nils);
+        fetch(norm->numbers);
+        if (!norm->strings.isNever())
             fetch(builtinTypes->stringType);
-        fetch(norm.threads);
-        for (TypeId ty : norm.tables)
+        fetch(norm->threads);
+        for (TypeId ty : norm->tables)
             fetch(ty);
-        if (norm.functions.isTop)
+        if (norm->functions.isTop)
             fetch(builtinTypes->functionType);
-        else if (!norm.functions.isNever())
+        else if (!norm->functions.isNever())
         {
-            if (norm.functions.parts->size() == 1)
-                fetch(norm.functions.parts->front());
+            if (norm->functions.parts.size() == 1)
+                fetch(norm->functions.parts.front());
             else
             {
                 std::vector<TypeId> parts;
-                parts.insert(parts.end(), norm.functions.parts->begin(), norm.functions.parts->end());
+                parts.insert(parts.end(), norm->functions.parts.begin(), norm->functions.parts.end());
                 fetch(testArena.addType(IntersectionType{std::move(parts)}));
             }
         }
-        for (const auto& [tyvar, intersect] : norm.tyvars)
+        for (const auto& [tyvar, intersect] : norm->tyvars)
         {
             if (get<NeverType>(intersect->tops))
             {
@@ -2094,8 +2115,15 @@ struct TypeChecker2
         }
     }
 
-    bool hasIndexTypeFromType(TypeId ty, const std::string& prop, const Location& location)
+    bool hasIndexTypeFromType(TypeId ty, const std::string& prop, const Location& location, std::unordered_set<TypeId>& seen)
     {
+        // If we have already encountered this type, we must assume that some
+        // other codepath will do the right thing and signal false if the
+        // property is not present.
+        const bool isUnseen = seen.insert(ty).second;
+        if (!isUnseen)
+            return true;
+
         if (get<ErrorType>(ty) || get<AnyType>(ty) || get<NeverType>(ty))
             return true;
 
@@ -2120,10 +2148,12 @@ struct TypeChecker2
         else if (const ClassType* cls = get<ClassType>(ty))
             return bool(lookupClassProp(cls, prop));
         else if (const UnionType* utv = get<UnionType>(ty))
-            ice.ice("getIndexTypeFromTypeHelper cannot take a UnionType");
+            return std::all_of(begin(utv), end(utv), [&](TypeId part) {
+                return hasIndexTypeFromType(part, prop, location, seen);
+            });
         else if (const IntersectionType* itv = get<IntersectionType>(ty))
             return std::any_of(begin(itv), end(itv), [&](TypeId part) {
-                return hasIndexTypeFromType(part, prop, location);
+                return hasIndexTypeFromType(part, prop, location, seen);
             });
         else
             return false;

@@ -7,11 +7,15 @@ namespace CodeGen
 {
 
 struct NativeState;
+struct ModuleHelpers;
 
 namespace A64
 {
 
-bool initEntryFunction(NativeState& data);
+class AssemblyBuilderA64;
+
+bool initHeaderFunctions(NativeState& data);
+void assembleHelpers(AssemblyBuilderA64& build, ModuleHelpers& helpers);
 
 } // namespace A64
 } // namespace CodeGen
