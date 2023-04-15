@@ -1,0 +1,77 @@
+name: custom_tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux-custom-tests:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - run: |
+          sudo apt-get update && \
+          sudo DEBIAN_FRONTEND=noninteractive apt-get remove g++ && \
+          sudo DEBIAN_FRONTEND=noninteractive \
+          apt-get install -y --no-install-recommends \
+          ca-certificates \
+          clang \
+          cmake \
+          git \
+          libconfig-dev \
+          libgtest-dev \
+          libopus-dev \
+          libsodium-dev \
+          libvpx-dev \
+          llvm-dev \
+          ninja-build \
+          pkg-config \
+          libavutil-dev \
+          libavcodec-dev \
+          libavformat-dev \
+          libavfilter-dev \
+          libx264-dev
+      - run: git submodule update --init --recursive
+      - name: build toxcore
+        run: |
+          CC=clang cmake -B_build -H. -GNinja \
+          -DCMAKE_INSTALL_PREFIX:PATH="$PWD/_install" \
+          -DCMAKE_C_FLAGS="-g -O1 -Wno-everything -Wno-missing-variable-declarations -fno-omit-frame-pointer -fsanitize=address" \
+          -DCMAKE_CXX_FLAGS="-g -O1 -Wno-everything -Wno-missing-variable-declarations -fno-omit-frame-pointer -fsanitize=address" \
+          -DCMAKE_EXE_LINKER_FLAGS="-g -O1 -Wno-everything -Wno-missing-variable-declarations -fno-omit-frame-pointer -fsanitize=address" \
+          -DCMAKE_SHARED_LINKER_FLAGS="-g -O1 -Wno-everything -Wno-missing-variable-declarations -fno-omit-frame-pointer -fsanitize=address" \
+          -DMIN_LOGGER_LEVEL=INFO \
+          -DMUST_BUILD_TOXAV=ON \
+          -DNON_HERMETIC_TESTS=OFF \
+          -DSTRICT_ABI=OFF \
+          -DUSE_IPV6=OFF \
+          -DAUTOTEST=OFF \
+          -DBUILD_MISC_TESTS=OFF \
+          -DBUILD_FUN_UTILS=OFF
+          cd _build
+          ninja install -j"$(nproc)"
+      - name: run custom tests
+        run: |
+          pwd
+          ls -1 ./custom_tests/*.c
+          export PKG_CONFIG_PATH="$PWD"/_install/lib/pkgconfig
+          export LD_LIBRARY_PATH="$PWD"/_install/lib
+          for i in $(ls -1 ./custom_tests/*.c) ; do
+          echo "CCC:--------------- ""$i"" ---------------"
+          clang -g -O1 -fno-omit-frame-pointer -fsanitize=address \
+          -Wno-everything -Wno-missing-variable-declarations \
+          $(pkg-config --cflags toxcore libavcodec libavutil x264 opus vpx libsodium) \
+          $(pkg-config --libs toxcore libavcodec libavutil x264 opus vpx libsodium) \
+          "$i" \
+          -o test
+          echo "RUN:--------------- ""$i"" ---------------"
+          ./test
+          if [ $? -ne 0 ]; then
+            echo "ERR:--------------- ""$i"" ---------------"
+            exit $?
+          else
+            echo "OK :*************** ""$i"" ***************"
+          fi
+          done
+
+

@@ -3475,6 +3475,31 @@ static int get_gc_peer_public_key(const GC_Chat *chat, uint32_t peer_number, uin
     return 0;
 }
 
+non_null()
+int64_t get_gc_peer_id_by_public_key(const GC_Chat *chat, const uint8_t *public_key)
+{
+    if (chat == nullptr) {
+        return -1;
+    }
+
+    if (public_key == nullptr) {
+        return -1;
+    }
+
+    if (chat->numpeers == 0) {
+        return -1;
+    }
+
+    const int target_peer_number = get_peer_number_of_enc_pk(chat, public_key, false);
+
+    if (target_peer_number == -1)
+    {
+        return -1;
+    }
+
+    return (chat->group[target_peer_number].peer_id);
+}
+
 int gc_get_peer_public_key_by_peer_id(const GC_Chat *chat, uint32_t peer_id, uint8_t *public_key)
 {
     const int peer_number = get_peer_number_of_peer_id(chat, peer_id);
@@ -4893,26 +4918,14 @@ static int handle_gc_private_message(const GC_Session *c, const GC_Chat *chat, c
     return 0;
 }
 
-/** @brief Returns false if a custom packet is too large. */
-static bool custom_gc_packet_length_is_valid(uint16_t length, bool lossless)
-{
-    if (lossless) {
-        if (length > MAX_GC_CUSTOM_LOSSLESS_PACKET_SIZE) {
-            return false;
-        }
-    } else {
-        if (length > MAX_GC_CUSTOM_LOSSY_PACKET_SIZE) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
 int gc_send_custom_private_packet(const GC_Chat *chat, bool lossless, uint32_t peer_id, const uint8_t *message,
                                   uint16_t length)
 {
-    if (!custom_gc_packet_length_is_valid(length, lossless)) {
+    if (length > MAX_GC_CUSTOM_PACKET_SIZE) {
+        return -1;
+    }
+
+    if ((!lossless) && (length > MAX_GC_PACKET_CHUNK_SIZE)) {
         return -1;
     }
 
@@ -4942,23 +4955,16 @@ int gc_send_custom_private_packet(const GC_Chat *chat, bool lossless, uint32_t p
 
     return ret ? 0 : -5;
 }
-
-
-
 /** @brief Handles a custom private packet.
  *
  * @retval 0 if packet is handled correctly.
  * @retval -1 if packet has invalid size.
  */
-non_null(1, 2, 3, 4) nullable(7)
+non_null(1, 2, 3, 4) nullable(6)
 static int handle_gc_custom_private_packet(const GC_Session *c, const GC_Chat *chat, const GC_Peer *peer,
-        const uint8_t *data, uint16_t length, bool lossless, void *userdata)
+        const uint8_t *data, uint16_t length, void *userdata)
 {
-    if (!custom_gc_packet_length_is_valid(length, lossless)) {
-        return -1;
-    }
-
-    if (data == nullptr || length == 0) {
+    if (data == nullptr || length == 0 || length > MAX_GC_CUSTOM_PACKET_SIZE) {
         return -1;
     }
 
@@ -4975,7 +4981,11 @@ static int handle_gc_custom_private_packet(const GC_Session *c, const GC_Chat *c
 
 int gc_send_custom_packet(const GC_Chat *chat, bool lossless, const uint8_t *data, uint16_t length)
 {
-    if (!custom_gc_packet_length_is_valid(length, lossless)) {
+    if (length > MAX_GC_CUSTOM_PACKET_SIZE) {
+        return -1;
+    }
+
+    if ((!lossless) && (length > MAX_GC_PACKET_CHUNK_SIZE)) {
         return -1;
     }
 
@@ -5001,15 +5011,11 @@ int gc_send_custom_packet(const GC_Chat *chat, bool lossless, const uint8_t *dat
  * Return 0 if packet is handled correctly.
  * Return -1 if packet has invalid size.
  */
-non_null(1, 2, 3, 4) nullable(7)
+non_null(1, 2, 3, 4) nullable(6)
 static int handle_gc_custom_packet(const GC_Session *c, const GC_Chat *chat, const GC_Peer *peer, const uint8_t *data,
-                                   uint16_t length, bool lossless, void *userdata)
+                                   uint16_t length, void *userdata)
 {
-    if (!custom_gc_packet_length_is_valid(length, lossless)) {
-        return -1;
-    }
-
-    if (data == nullptr || length == 0) {
+    if (data == nullptr || length == 0 || length > MAX_GC_CUSTOM_PACKET_SIZE) {
         return -1;
     }
 
@@ -5940,12 +5946,12 @@ bool handle_gc_lossless_helper(const GC_Session *c, GC_Chat *chat, uint32_t peer
         }
 
         case GP_CUSTOM_PACKET: {
-            ret = handle_gc_custom_packet(c, chat, peer, data, length, true, userdata);
+            ret = handle_gc_custom_packet(c, chat, peer, data, length, userdata);
             break;
         }
 
         case GP_CUSTOM_PRIVATE_PACKET: {
-            ret = handle_gc_custom_private_packet(c, chat, peer, data, length, true, userdata);
+            ret = handle_gc_custom_private_packet(c, chat, peer, data, length, userdata);
             break;
         }
 
@@ -6195,12 +6201,12 @@ static bool handle_gc_lossy_packet(const GC_Session *c, GC_Chat *chat, const uin
         }
 
         case GP_CUSTOM_PACKET: {
-            ret = handle_gc_custom_packet(c, chat, peer, data, payload_len, false, userdata);
+            ret = handle_gc_custom_packet(c, chat, peer, data, payload_len, userdata);
             break;
         }
 
         case GP_CUSTOM_PRIVATE_PACKET: {
-            ret = handle_gc_custom_private_packet(c, chat, peer, data, payload_len, false, userdata);
+            ret = handle_gc_custom_private_packet(c, chat, peer, data, payload_len, userdata);
             break;
         }
 
@@ -6498,6 +6504,12 @@ void gc_callback_status_change(const Messenger *m, gc_status_change_cb *function
 {
     GC_Session *c = m->group_handler;
     c->status_change = function;
+}
+
+void gc_callback_connection_status_change(const Messenger *m, gc_connection_status_change_cb *function)
+{
+    GC_Session *c = m->group_handler;
+    c->connection_status_change = function;
 }
 
 void gc_callback_topic_change(const Messenger *m, gc_topic_change_cb *function)
@@ -7165,6 +7177,12 @@ void do_gc(GC_Session *c, void *userdata)
 
         do_new_connection_cooldown(chat);
         do_peer_delete(c, chat, userdata);
+
+        if (chat->connection_state != state) {
+            if (c->connection_status_change != nullptr) {
+                c->connection_status_change(c->messenger, chat->group_number, chat->connection_state, userdata);
+            }
+        }
     }
 }
 
@@ -8216,6 +8234,138 @@ uint32_t gc_count_groups(const GC_Session *c)
     }
 
     return count;
+}
+
+uint32_t copy_grouplist(const GC_Session *c, uint32_t *out_list, uint32_t list_size)
+{
+    if (out_list == nullptr) {
+        return 0;
+    }
+
+    if (c->chats_index == 0) {
+        return 0;
+    }
+
+    uint32_t ret = 0;
+
+    for (uint32_t i = 0; i < c->chats_index; ++i) {
+        if (ret >= list_size) {
+            break;  /* Abandon ship */
+        }
+
+        if (c->chats[i].connection_state != CS_NONE) {
+            out_list[ret] = i;
+            ++ret;
+        }
+    }
+
+    return ret;
+}
+
+uint32_t get_group_peercount(const GC_Chat *chat)
+{
+    if (chat == nullptr) {
+        return 0;
+    }
+
+    if (chat->numpeers == 0) {
+        return 0;
+    }
+
+    uint32_t sum = 0;
+
+    for (uint32_t i = 0; i < chat->numpeers; ++i) {
+        const GC_Connection *gconn = get_gc_connection(chat, i);
+
+        assert(gconn != nullptr);
+
+        if (gconn->confirmed) {
+            ++sum;
+        }
+    }
+
+    return sum;
+}
+
+uint32_t get_group_offline_peercount(const GC_Chat *chat)
+{
+    if (chat == nullptr) {
+        return 0;
+    }
+
+    if (chat->numpeers == 0) {
+        return 0;
+    }
+
+    uint32_t sum = 0;
+
+    for (uint32_t i = 0; i < chat->numpeers; ++i) {
+        const GC_Connection *gconn = get_gc_connection(chat, i);
+
+        assert(gconn != nullptr);
+
+        if (!gconn->confirmed) {
+            ++sum;
+        }
+    }
+
+    return sum;
+}
+
+void copy_peerlist(const GC_Chat *chat, uint32_t *out_list)
+{
+    if (out_list == nullptr) {
+        return;
+    }
+
+    if (chat == nullptr) {
+        return;
+    }
+
+    if (chat->numpeers == 0) {
+        return;
+    }
+
+    uint32_t index = 0;
+
+    for (uint32_t i = 0; i < chat->numpeers; ++i) {
+        const GC_Connection *gconn = get_gc_connection(chat, i);
+
+        assert(gconn != nullptr);
+
+        if (gconn->confirmed) {
+            out_list[index] = chat->group[i].peer_id;
+            ++index;
+        }
+    }
+}
+
+void copy_offline_peerlist(const GC_Chat *chat, uint32_t *out_list)
+{
+    if (out_list == nullptr) {
+        return;
+    }
+
+    if (chat == nullptr) {
+        return;
+    }
+
+    if (chat->numpeers == 0) {
+        return;
+    }
+
+    uint32_t index = 0;
+
+    for (uint32_t i = 0; i < chat->numpeers; ++i) {
+        const GC_Connection *gconn = get_gc_connection(chat, i);
+
+        assert(gconn != nullptr);
+
+        if (!gconn->confirmed) {
+            out_list[index] = chat->group[i].peer_id;
+            ++index;
+        }
+    }
 }
 
 GC_Chat *gc_get_group(const GC_Session *c, int group_number)

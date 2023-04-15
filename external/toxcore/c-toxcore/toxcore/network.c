@@ -377,47 +377,47 @@ IP6 get_ip6_loopback(void)
 
 const Socket net_invalid_socket = { (int)INVALID_SOCKET };
 
-Family net_family_unspec()
+Family net_family_unspec(void)
 {
     return family_unspec;
 }
 
-Family net_family_ipv4()
+Family net_family_ipv4(void)
 {
     return family_ipv4;
 }
 
-Family net_family_ipv6()
+Family net_family_ipv6(void)
 {
     return family_ipv6;
 }
 
-Family net_family_tcp_server()
+Family net_family_tcp_server(void)
 {
     return family_tcp_server;
 }
 
-Family net_family_tcp_client()
+Family net_family_tcp_client(void)
 {
     return family_tcp_client;
 }
 
-Family net_family_tcp_ipv4()
+Family net_family_tcp_ipv4(void)
 {
     return family_tcp_ipv4;
 }
 
-Family net_family_tcp_ipv6()
+Family net_family_tcp_ipv6(void)
 {
     return family_tcp_ipv6;
 }
 
-Family net_family_tox_tcp_ipv4()
+Family net_family_tox_tcp_ipv4(void)
 {
     return family_tox_tcp_ipv4;
 }
 
-Family net_family_tox_tcp_ipv6()
+Family net_family_tox_tcp_ipv6(void)
 {
     return family_tox_tcp_ipv6;
 }
@@ -941,7 +941,7 @@ int send_packet(const Networking_Core *net, const IP_Port *ip_port, Packet packe
     if (net_family_is_ipv4(net->family) && !net_family_is_ipv4(ipp_copy.ip.family)) {
         // TODO(iphydf): Make this an error. Occasionally we try to send to an
         // all-zero ip_port.
-        LOGGER_WARNING(net->log, "attempted to send message with network family %d (probably IPv6) on IPv4 socket",
+        LOGGER_DEBUG(net->log, "attempted to send message with network family %d (probably IPv6) on IPv4 socket",
                        ipp_copy.ip.family.value);
         return -1;
     }

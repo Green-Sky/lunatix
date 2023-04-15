@@ -23,16 +23,9 @@
 #define GC_MESSAGE_PSEUDO_ID_SIZE 4
 #define GROUP_MAX_MESSAGE_LENGTH  1372
 
-/* Max size of a packet chunk. Packets larger than this must be split up.
- *
- * For an explanation on why this value was chosen, see the following link: https://archive.ph/vsCOG
- */
-#define MAX_GC_PACKET_CHUNK_SIZE 500
-
-#define MAX_GC_MESSAGE_SIZE GROUP_MAX_MESSAGE_LENGTH
-#define MAX_GC_MESSAGE_RAW_SIZE (MAX_GC_MESSAGE_SIZE + GC_MESSAGE_PSEUDO_ID_SIZE)
-#define MAX_GC_CUSTOM_LOSSLESS_PACKET_SIZE 1373
-#define MAX_GC_CUSTOM_LOSSY_PACKET_SIZE MAX_GC_PACKET_CHUNK_SIZE
+#define MAX_GC_MESSAGE_SIZE       GROUP_MAX_MESSAGE_LENGTH
+#define MAX_GC_MESSAGE_RAW_SIZE   (MAX_GC_MESSAGE_SIZE + GC_MESSAGE_PSEUDO_ID_SIZE)
+#define MAX_GC_CUSTOM_PACKET_SIZE 40000 // 1373
 #define MAX_GC_PASSWORD_SIZE 32
 #define MAX_GC_SAVED_INVITES 10
 #define MAX_GC_PEERS_DEFAULT 100
@@ -40,8 +33,11 @@
 #define GC_MAX_SAVED_PEERS 100
 #define GC_SAVED_PEER_SIZE (ENC_PUBLIC_KEY_SIZE + sizeof(Node_format) + sizeof(IP_Port))
 
+/* Max size of a packet chunk. Packets larger than this must be split up. */
+#define MAX_GC_PACKET_CHUNK_SIZE 1372 // 500
+
 /* Max size of a complete encrypted packet including headers. */
-#define MAX_GC_PACKET_SIZE (MAX_GC_PACKET_CHUNK_SIZE * 100)
+#define MAX_GC_PACKET_SIZE (500 * 100) // (MAX_GC_PACKET_CHUNK_SIZE * 100)
 
 /* Max number of messages to store in the send/recv arrays */
 #define GCC_BUFFER_SIZE 8192
@@ -339,6 +335,7 @@ typedef void gc_nick_change_cb(const Messenger *m, uint32_t group_number, uint32
                                size_t length, void *user_data);
 typedef void gc_status_change_cb(const Messenger *m, uint32_t group_number, uint32_t peer_id, unsigned int status,
                                  void *user_data);
+typedef void gc_connection_status_change_cb(const Messenger *m, uint32_t group_number, int32_t status, void *user_data);
 typedef void gc_topic_change_cb(const Messenger *m, uint32_t group_number, uint32_t peer_id, const uint8_t *data,
                                 size_t length, void *user_data);
 typedef void gc_topic_lock_cb(const Messenger *m, uint32_t group_number, unsigned int topic_lock, void *user_data);
@@ -367,6 +364,7 @@ typedef struct GC_Session {
     gc_moderation_cb *moderation;
     gc_nick_change_cb *nick_change;
     gc_status_change_cb *status_change;
+    gc_connection_status_change_cb *connection_status_change;
     gc_topic_change_cb *topic_change;
     gc_topic_lock_cb *topic_lock;
     gc_voice_state_cb *voice_state;

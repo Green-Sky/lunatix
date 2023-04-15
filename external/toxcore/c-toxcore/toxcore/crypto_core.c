@@ -176,7 +176,7 @@ bool crypto_memunlock(void *data, size_t length)
 #endif
 }
 
-bool pk_equal(const uint8_t pk1[CRYPTO_PUBLIC_KEY_SIZE], const uint8_t pk2[CRYPTO_PUBLIC_KEY_SIZE])
+bool pk_equal(const uint8_t *pk1, const uint8_t *pk2)
 {
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     // Hope that this is better for the fuzzer
@@ -186,7 +186,7 @@ bool pk_equal(const uint8_t pk1[CRYPTO_PUBLIC_KEY_SIZE], const uint8_t pk2[CRYPT
 #endif
 }
 
-void pk_copy(uint8_t dest[CRYPTO_PUBLIC_KEY_SIZE], const uint8_t src[CRYPTO_PUBLIC_KEY_SIZE])
+void pk_copy(uint8_t *dest, const uint8_t *src)
 {
     memcpy(dest, src, CRYPTO_PUBLIC_KEY_SIZE);
 }
@@ -462,6 +462,11 @@ void random_nonce(const Random *rng, uint8_t *nonce)
     random_bytes(rng, nonce, crypto_box_NONCEBYTES);
 }
 
+void new_symmetric_key_implicit_random(uint8_t *key)
+{
+    randombytes(key, CRYPTO_SYMMETRIC_KEY_SIZE);
+}
+
 void new_symmetric_key(const Random *rng, uint8_t *key)
 {
     random_bytes(rng, key, CRYPTO_SYMMETRIC_KEY_SIZE);
@@ -484,7 +489,7 @@ void crypto_derive_public_key(uint8_t *public_key, const uint8_t *secret_key)
     crypto_scalarmult_curve25519_base(public_key, secret_key);
 }
 
-void new_hmac_key(const Random *rng, uint8_t key[CRYPTO_HMAC_KEY_SIZE])
+void new_hmac_key(const Random *rng, uint8_t *key)
 {
     random_bytes(rng, key, CRYPTO_HMAC_KEY_SIZE);
 }

@@ -61,7 +61,7 @@ static void group_private_message_handler(Tox *tox, uint32_t groupnumber, uint32
 }
 
 static void group_message_handler(Tox *tox, uint32_t groupnumber, uint32_t peer_id, TOX_MESSAGE_TYPE type,
-                                  const uint8_t *message, size_t length, uint32_t message_id, void *user_data)
+                                  const uint8_t *message, size_t length, void *user_data)
 {
     AutoTox *autotox = (AutoTox *)user_data;
     ck_assert(autotox != nullptr);
@@ -209,7 +209,7 @@ static void group_tcp_test(AutoTox *autotoxes)
 
     Tox_Err_Group_Send_Message merr;
     tox_group_send_message(autotoxes[0].tox, groupnumber, TOX_MESSAGE_TYPE_NORMAL,
-                           (const uint8_t *)CODEWORD, CODEWORD_LEN, nullptr, &merr);
+                           (const uint8_t *)CODEWORD, CODEWORD_LEN, &merr);
     ck_assert(merr == TOX_ERR_GROUP_SEND_MESSAGE_OK);
 
     while (!state1->got_second_code) {
