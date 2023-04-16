@@ -19,6 +19,9 @@ class ToxLuaModule : public ToxEventI {
 		ToxLuaModule(ToxI& t, ToxEventProviderI& tep);
 		~ToxLuaModule(void);
 
+	public:
+		void iterate(void);
+
 	protected: // tox events
 
 #define OVER_EVENT(x) bool onToxEvent(const x*) override;
