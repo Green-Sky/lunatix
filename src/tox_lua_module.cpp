@@ -367,10 +367,14 @@ auto callEventArgs(const Tox_Event_Friend_Lossy_Packet* e, FN&& fn) {
 
 template<typename FN>
 auto callEventArgs(const Tox_Event_Friend_Message* e, FN&& fn) {
+	// thx zoff
+	auto message = std::string_view{reinterpret_cast<const char*>(tox_event_friend_message_get_message(e)), tox_event_friend_message_get_message_length(e)};
+	message = message.substr(0, message.find_first_of('\0')); // trim \0 // hi zoff
+
 	return fn(
 		tox_event_friend_message_get_friend_number(e),
 		tox_event_friend_message_get_type(e),
-		std::string_view{reinterpret_cast<const char*>(tox_event_friend_message_get_message(e)), tox_event_friend_message_get_message_length(e)}
+		message
 	);
 }
 
@@ -599,7 +603,7 @@ bool ToxLuaModule::onToxEvent(const Tox_Event_Self_Connection_Status* e) {
 	auto res = callEventArgs(e, lr_fn);
 
 	if (res.hasFailed() || res.size() != 1) {
-		std::cerr << "TLM error, Tox_Event_Self_Connection_Status callback failed\n";
+		std::cerr << "TLM error, Tox_Event_Self_Connection_Status callback failed " << res.errorCode() << ":" << res.errorMessage() << "\n";
 		return false;
 	}
 
@@ -624,7 +628,7 @@ bool ToxLuaModule::onToxEvent(const x* e) { \
 	} \
 	auto res = callEventArgs(e, lr_fn); \
 	if (res.hasFailed() || res.size() != 1) { \
-		std::cerr << "TLM error, " #x " callback failed\n"; \
+		std::cerr << "TLM error, " #x " callback failed " << res.errorCode() << ":" << res.errorMessage() << "\n"; \
 		return false; \
 	} \
 	if (!res[0].isBool()) { \
