@@ -27,12 +27,13 @@ int main(void) {
 
 	TransferManager tm{tc, tc};
 
-	ToxLuaModule lm{tc, tc};
+	ToxLuaModule tlm{tc, tc};
 
 	std::cout << "tox id: " << tc.toxSelfGetAddressStr() << "\n";
 
 	while (tc.iterate()) {
 		tm.iterate(); // currently does nothing
+		tlm.iterate();
 		std::this_thread::sleep_for(std::chrono::milliseconds(5));
 	}
 

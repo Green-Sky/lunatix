@@ -228,6 +228,22 @@ ToxLuaModule::ToxLuaModule(ToxI& t, ToxEventProviderI& tep) : _t(t) {
 ToxLuaModule::~ToxLuaModule(void) {
 }
 
+void ToxLuaModule::iterate(void) {
+	luabridge::LuaRef g_iterate_fn = luabridge::getGlobal(_lua_state_global.get(), "tlm_iterate");
+	if (!g_iterate_fn.isCallable()) {
+		std::cerr << "TLM waring: tlm_iterate is not callable\n";
+		return;
+	}
+
+	// call
+	auto res = g_iterate_fn();
+
+	if (res.hasFailed() || res.size() != 0) {
+		std::cerr << "TLM error, tlm_iterate callback failed " << res.errorCode() << ":" << res.errorMessage() << "\n";
+		return;
+	}
+}
+
 #if 0
 template<typename EventT, typename FN>
 auto callEventArgs(const EventT* e, FN&& fn) {
