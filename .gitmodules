@@ -4,3 +4,6 @@
 [submodule "external/solanaceae_core"]
 	path = external/solanaceae_core
 	url = https://github.com/Green-Sky/solanaceae_core
+[submodule "external/solanaceae_plugin"]
+	path = external/solanaceae_plugin
+	url = https://github.com/Green-Sky/solanaceae_plugin

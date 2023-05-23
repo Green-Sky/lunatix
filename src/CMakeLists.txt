@@ -18,3 +18,25 @@ target_link_libraries(lunatix PUBLIC
 
 target_compile_features(lunatix PUBLIC cxx_std_17)
 
+#################################################
+
+add_library(plugin_tlm SHARED
+	./plugin_tlm.cpp
+
+	./tox_lua_module.hpp
+	./tox_lua_module.cpp
+)
+
+target_compile_features(plugin_tlm PUBLIC cxx_std_17)
+
+target_link_libraries(plugin_tlm PUBLIC
+	Luau.VM
+	Luau.Compiler
+	luabridge
+	solanaceae_core
+	solanaceae_plugin
+)
+
+set_target_properties(plugin_tlm PROPERTIES CXX_VISIBILITY_PRESET hidden)
+set_target_properties(plugin_tlm PROPERTIES C_VISIBILITY_PRESET hidden)
+
