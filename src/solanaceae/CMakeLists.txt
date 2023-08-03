@@ -13,7 +13,7 @@ add_library(solanaceae
 )
 
 target_link_libraries(solanaceae PUBLIC
-	solanaceae_core
+	solanaceae_toxcore
 )
 
 

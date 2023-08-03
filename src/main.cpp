@@ -1,6 +1,6 @@
 #include <tox/tox.h>
 
-#include <solanaceae/core/tox_event_logger.hpp>
+#include <solanaceae/toxcore/tox_event_logger.hpp>
 #include "./solanaceae/tox_client.hpp"
 #include "./solanaceae/auto_dirty.hpp"
 #include "./solanaceae/transfer_manager.hpp"

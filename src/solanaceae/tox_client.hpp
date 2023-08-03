@@ -1,8 +1,8 @@
 #pragma once
 
-#include <solanaceae/core/tox_default_impl.hpp>
-#include <solanaceae/core/tox_event_interface.hpp>
-#include <solanaceae/core/tox_event_provider_base.hpp>
+#include <solanaceae/toxcore/tox_default_impl.hpp>
+#include <solanaceae/toxcore/tox_event_interface.hpp>
+#include <solanaceae/toxcore/tox_event_provider_base.hpp>
 
 #include <string>
 #include <string_view>

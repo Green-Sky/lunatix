@@ -12,7 +12,7 @@ target_link_libraries(lunatix PUBLIC
 	Luau.VM
 	Luau.Compiler
 	luabridge
-	solanaceae_core
+	solanaceae_toxcore
 	solanaceae
 )
 
@@ -33,7 +33,7 @@ target_link_libraries(plugin_tlm PUBLIC
 	Luau.VM
 	Luau.Compiler
 	luabridge
-	solanaceae_core
+	solanaceae_toxcore
 	solanaceae_plugin
 )
 

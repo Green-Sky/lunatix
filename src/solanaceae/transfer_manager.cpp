@@ -1,6 +1,6 @@
 #include "./transfer_manager.hpp"
 
-#include <solanaceae/core/tox_interface.hpp>
+#include <solanaceae/toxcore/tox_interface.hpp>
 
 #include <memory>
 #include <vector>

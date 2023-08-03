@@ -1,6 +1,6 @@
 #pragma once
 
-#include <solanaceae/core/tox_event_interface.hpp>
+#include <solanaceae/toxcore/tox_event_interface.hpp>
 
 #include <lua.h>
 #include <lualib.h>

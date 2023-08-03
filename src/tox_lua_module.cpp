@@ -1,6 +1,6 @@
 #include "./tox_lua_module.hpp"
 
-#include <solanaceae/core/tox_interface.hpp>
+#include <solanaceae/toxcore/tox_interface.hpp>
 
 #include <luacode.h>
 #include <LuaBridge3/LuaBridge.h>
